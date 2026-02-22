@@ -1,12 +1,10 @@
-# Vikunja-WIP [Linked with Authentik]
+# Vikunja [Linked with Authentik]
 
 This stack is set up to be linked with Authentik using OpenID Connect (OIDC).
 
 ## Files
 
 - `stack.yml` - Vikunja + PostgreSQL stack definition.
-- `config.template.yml` - Template used to generate `config.yml`.
-- `generate-config.sh` - Script used by the `vikunja_config` init service to generate `config.yml`.
 - `.env.example` - Required environment variable template.
 
 ## Required Environment Variables
@@ -28,7 +26,7 @@ cp .env.example .env
 docker compose -f stack.yml --env-file .env up -d
 ```
 
-The `vikunja_config` init service runs automatically and generates `config.yml` before Vikunja starts.
+The `vikunja_config` init service runs automatically and generates `config.yml` from environment variables before Vikunja starts.
 In Portainer, this works with stack environment variables and does not require mounting a `.env` file into containers.
 
 ## OIDC Setup Notes
@@ -39,6 +37,20 @@ The generated config is stored in a Docker volume and mounted into Vikunja at `/
 With this config, the provider key is `authentik`, so the callback path in Vikunja is:
 
 - `/auth/openid/authentik`
+
+## Running Without Authentik
+
+If you do not want OIDC/Authentik integration and only want Vikunja running:
+
+- In `stack.yml`, edit the `vikunja_config` command block and set:
+  `auth.openid.enabled: false`
+- Remove the OpenID provider block under `auth.openid.providers`.
+- Remove these variables from `.env` and from `vikunja_config.environment` in `stack.yml`:
+  - `VIKUNJA_OIDC_AUTH_URL`
+  - `VIKUNJA_OIDC_CLIENT_ID`
+  - `VIKUNJA_OIDC_CLIENT_SECRET`
+
+After that, redeploy the stack and Vikunja will use its normal login flow.
 
 ## Port Notes
 
@@ -51,7 +63,14 @@ With this config, the provider key is `authentik`, so the callback path in Vikun
 - If you see `permission denied` errors for `/app/vikunja/files`, this stack runs Vikunja as `root` to avoid UID/GID mismatch with persistent volumes.
 - If you see `No config file found`, check `docker compose -f stack.yml --env-file .env logs vikunja_config` and confirm config generation succeeded.
 - If you use a reverse proxy, make sure `VIKUNJA_SERVICE_PUBLICURL` in `.env` matches your external URL.
-- In Portainer, confirm `vikunja_config` exits successfully before/with `vikunja` startup and verify it wrote `/work/config.yml` in the shared `vikunja_config` volume.
+- In Portainer, confirm `vikunja_config` exits successfully before/with `vikunja` startup and logs `Generated /work/config.yml`.
+
+## Contribution Notes
+
+- Keep `stack.yml` free of hardcoded secrets; use environment variables.
+- If you add new required config variables, update both `.env.example` and `vikunja_config.environment`.
+- Preserve `vikunja_config` as a one-shot init service (`restart: "no"`) so failed config generation blocks startup clearly.
+- Include a short troubleshooting note in this README for any stack-specific behavior changes.
 
 ## Reference Docs
 

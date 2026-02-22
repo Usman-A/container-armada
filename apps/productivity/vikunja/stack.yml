@@ -6,6 +6,14 @@ services:
       POSTGRES_DB: vikunja
       POSTGRES_USER: vikunja
       POSTGRES_PASSWORD: ${VIKUNJA_DB_PASSWORD:?database password required}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+      start_period: 20s
+      interval: 30s
+      timeout: 5s
+      retries: 5
     volumes:
       - vikunja_db:/var/lib/postgresql/data
 
@@ -17,15 +25,35 @@ services:
       VIKUNJA_OIDC_AUTH_URL: ${VIKUNJA_OIDC_AUTH_URL:?oidc auth url required}
       VIKUNJA_OIDC_CLIENT_ID: ${VIKUNJA_OIDC_CLIENT_ID:?oidc client id required}
       VIKUNJA_OIDC_CLIENT_SECRET: ${VIKUNJA_OIDC_CLIENT_SECRET:?oidc client secret required}
-      TEMPLATE_PATH: /input/config.template.yml
-      OUTPUT_PATH: /work/config.yml
     command:
       - /bin/sh
       - -ec
-      - /bin/sh /input/generate-config.sh
+      - |
+        set -eu
+        log() { printf '%s %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"; }
+        : "${VIKUNJA_SERVICE_PUBLICURL:?missing VIKUNJA_SERVICE_PUBLICURL}"
+        : "${VIKUNJA_OIDC_AUTH_URL:?missing VIKUNJA_OIDC_AUTH_URL}"
+        : "${VIKUNJA_OIDC_CLIENT_ID:?missing VIKUNJA_OIDC_CLIENT_ID}"
+        : "${VIKUNJA_OIDC_CLIENT_SECRET:?missing VIKUNJA_OIDC_CLIENT_SECRET}"
+        umask 077
+        cat > /work/config.yml <<EOF
+        service:
+          publicurl: "${VIKUNJA_SERVICE_PUBLICURL}"
+
+        auth:
+          openid:
+            enabled: true
+            providers:
+              authentik:
+                name: authentik
+                authurl: "${VIKUNJA_OIDC_AUTH_URL}"
+                clientid: "${VIKUNJA_OIDC_CLIENT_ID}"
+                clientsecret: "${VIKUNJA_OIDC_CLIENT_SECRET}"
+        EOF
+        log "Generated /work/config.yml"
+        ls -la /work/config.yml
+        sed -n -e 's/clientsecret:.*/clientsecret: "<redacted>"/g' -e 's/clientid:.*/clientid: "<redacted>"/g' -e '1,80p' /work/config.yml
     volumes:
-      - ./config.template.yml:/input/config.template.yml:ro
-      - ./generate-config.sh:/input/generate-config.sh:ro
       - vikunja_config:/work
 
   vikunja:
@@ -34,7 +62,7 @@ services:
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_started
+        condition: service_healthy
       vikunja_config:
         condition: service_completed_successfully
     environment:
@@ -43,7 +71,7 @@ services:
       VIKUNJA_DATABASE_DATABASE: vikunja
       VIKUNJA_DATABASE_USER: vikunja
       VIKUNJA_DATABASE_PASSWORD: ${VIKUNJA_DB_PASSWORD:?database password required}
-      # Set this to your public Vikunja URL for correct redirects and links.
+      # Kept here as a runtime fallback and for parity with generated config.
       VIKUNJA_SERVICE_PUBLICURL: ${VIKUNJA_SERVICE_PUBLICURL:-https://vikunja.example.com}
     ports:
       - "${COMPOSE_PORT_HTTP:-3456}:3456"
