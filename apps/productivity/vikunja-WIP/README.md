@@ -1,4 +1,4 @@
-# Vikunja [Linked with Authentik]
+# Vikunja-WIP [Linked with Authentik]
 
 This stack is set up to be linked with Authentik using OpenID Connect (OIDC).
 

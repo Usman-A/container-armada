@@ -36,6 +36,9 @@ Within these folders, each stack should be organized as follows:
     ├── .env.example (optional, for environment variable templates)
     └── README.md
 ```
+
+If a stack folder ends with `-WIP`, it is not yet confirmed working.
+
 ## Contributing
 
 Contributions are welcome! If you have a stack you'd like to share, please submit a pull request with the following:
