@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  suwayomi:
+    image: ghcr.io/suwayomi/suwayomi-server:stable
+    container_name: suwayomi-server
+    restart: unless-stopped
+    volumes:
+      # Downloads MUST come first.
+      - suwayomi_downloads:/home/suwayomi/.local/share/Tachidesk/downloads
+      - suwayomi_data:/home/suwayomi/.local/share/Tachidesk
+    ports:
+      - "${SUWAYOMI_PORT:-4567}:4567"
+    environment:
+      - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:--Xmx2g}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4567/api/graphql"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  suwayomi_data:
+    driver: local
+  suwayomi_downloads:
+    driver: local

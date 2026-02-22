@@ -45,6 +45,8 @@ Contributions are welcome! If you have a stack you'd like to share, please submi
 3. An optional `.env.example` file if your stack requires environment variables.
 4. Be sure to test your stack before submitting to ensure it works as expected, and note if there are any hardware architecture limits when using the stack (e.g., ARM vs. x86/AMD64).
 5. Add a `README.md` file that provides an overview of the stack, its purpose, and any special instructions for deployment or configuration.
+6. Include a `How to Run` section in the stack `README.md` with clear startup guidance (for example: creating `.env` from `.env.example` and a `docker compose` command).
+7. Optionally add supporting documentation links in the stack `README.md` so future users can quickly understand and maintain the stack.
 
 
 > **Never commit real `.env` files or secrets in the repository.**
