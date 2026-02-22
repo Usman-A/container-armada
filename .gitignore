@@ -1,0 +1,13 @@
+# ignore actual environment variables and secrets
+.env
+.env.*
+*.key
+*.pem
+
+# explicitly allow template files (just in case)
+!*.example
+!*.template
+
+# ignore system files
+.DS_Store
+Thumbs.db
