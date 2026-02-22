@@ -9,11 +9,34 @@ services:
     volumes:
       - vikunja_db:/var/lib/postgresql/data
 
+  vikunja_config:
+    image: alpine:3.20
+    restart: "no"
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: ${VIKUNJA_SERVICE_PUBLICURL:?public URL required}
+      VIKUNJA_OIDC_AUTH_URL: ${VIKUNJA_OIDC_AUTH_URL:?oidc auth url required}
+      VIKUNJA_OIDC_CLIENT_ID: ${VIKUNJA_OIDC_CLIENT_ID:?oidc client id required}
+      VIKUNJA_OIDC_CLIENT_SECRET: ${VIKUNJA_OIDC_CLIENT_SECRET:?oidc client secret required}
+      TEMPLATE_PATH: /input/config.template.yml
+      OUTPUT_PATH: /work/config.yml
+    command:
+      - /bin/sh
+      - -ec
+      - /bin/sh /input/generate-config.sh
+    volumes:
+      - ./config.template.yml:/input/config.template.yml:ro
+      - ./generate-config.sh:/input/generate-config.sh:ro
+      - vikunja_config:/work
+
   vikunja:
     image: vikunja/vikunja:latest
+    user: "0:0"
     restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_started
+      vikunja_config:
+        condition: service_completed_successfully
     environment:
       VIKUNJA_DATABASE_TYPE: postgres
       VIKUNJA_DATABASE_HOST: db
@@ -22,12 +45,17 @@ services:
       VIKUNJA_DATABASE_PASSWORD: ${VIKUNJA_DB_PASSWORD:?database password required}
       # Set this to your public Vikunja URL for correct redirects and links.
       VIKUNJA_SERVICE_PUBLICURL: ${VIKUNJA_SERVICE_PUBLICURL:-https://vikunja.example.com}
+    ports:
+      - "${COMPOSE_PORT_HTTP:-3456}:3456"
+      - "${COMPOSE_PORT_HTTPS:-3443}:3456"
     volumes:
-      - ./config.yml:/app/vikunja/config.yml:ro
+      - vikunja_config:/etc/vikunja:ro
       - vikunja_files:/app/vikunja/files
 
 volumes:
   vikunja_db:
+    driver: local
+  vikunja_config:
     driver: local
   vikunja_files:
     driver: local
