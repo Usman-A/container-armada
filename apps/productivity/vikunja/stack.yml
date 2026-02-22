@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vikunja
+      POSTGRES_USER: vikunja
+      POSTGRES_PASSWORD: ${VIKUNJA_DB_PASSWORD:?database password required}
+    volumes:
+      - vikunja_db:/var/lib/postgresql/data
+
+  vikunja:
+    image: vikunja/vikunja:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      VIKUNJA_DATABASE_TYPE: postgres
+      VIKUNJA_DATABASE_HOST: db
+      VIKUNJA_DATABASE_DATABASE: vikunja
+      VIKUNJA_DATABASE_USER: vikunja
+      VIKUNJA_DATABASE_PASSWORD: ${VIKUNJA_DB_PASSWORD:?database password required}
+      # Set this to your public Vikunja URL for correct redirects and links.
+      VIKUNJA_SERVICE_PUBLICURL: ${VIKUNJA_SERVICE_PUBLICURL:-https://vikunja.example.com}
+    volumes:
+      - ./config.yml:/app/vikunja/config.yml:ro
+      - vikunja_files:/app/vikunja/files
+
+volumes:
+  vikunja_db:
+    driver: local
+  vikunja_files:
+    driver: local

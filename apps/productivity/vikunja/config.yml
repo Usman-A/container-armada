@@ -1,0 +1,10 @@
+auth:
+  openid:
+    enabled: true
+    providers:
+      authentik:
+        name: authentik
+        authurl: "https://auth.example.com/application/o/vikunja/"
+        clientid: "PASTE_CLIENT_ID"
+        clientsecret: "PASTE_CLIENT_SECRET"
+        scope: "openid profile email"
