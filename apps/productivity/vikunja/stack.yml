@@ -25,6 +25,7 @@ services:
       VIKUNJA_OIDC_AUTH_URL: ${VIKUNJA_OIDC_AUTH_URL:?oidc auth url required}
       VIKUNJA_OIDC_CLIENT_ID: ${VIKUNJA_OIDC_CLIENT_ID:?oidc client id required}
       VIKUNJA_OIDC_CLIENT_SECRET: ${VIKUNJA_OIDC_CLIENT_SECRET:?oidc client secret required}
+      VIKUNJA_AUTHENTIK_ONLY: ${VIKUNJA_AUTHENTIK_ONLY:-false}
     command:
       - /bin/sh
       - -ec
@@ -35,12 +36,18 @@ services:
         : "${VIKUNJA_OIDC_AUTH_URL:?missing VIKUNJA_OIDC_AUTH_URL}"
         : "${VIKUNJA_OIDC_CLIENT_ID:?missing VIKUNJA_OIDC_CLIENT_ID}"
         : "${VIKUNJA_OIDC_CLIENT_SECRET:?missing VIKUNJA_OIDC_CLIENT_SECRET}"
+        local_auth_enabled=true
+        case "${VIKUNJA_AUTHENTIK_ONLY:-false}" in
+          true|TRUE|1|yes|YES) local_auth_enabled=false ;;
+        esac
         umask 077
         cat > /work/config.yml <<EOF
         service:
           publicurl: "${VIKUNJA_SERVICE_PUBLICURL}"
 
         auth:
+          local:
+            enabled: $${local_auth_enabled}
           openid:
             enabled: true
             providers:
@@ -51,6 +58,7 @@ services:
                 clientsecret: "${VIKUNJA_OIDC_CLIENT_SECRET}"
         EOF
         log "Generated /work/config.yml"
+        log "Auth mode: authentik_only=${VIKUNJA_AUTHENTIK_ONLY:-false}, local_auth_enabled=$${local_auth_enabled}"
         ls -la /work/config.yml
         sed -n -e 's/clientsecret:.*/clientsecret: "<redacted>"/g' -e 's/clientid:.*/clientid: "<redacted>"/g' -e '1,80p' /work/config.yml
     volumes:
