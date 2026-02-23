@@ -18,6 +18,7 @@ Set these in your local `.env` file (do not commit it):
 - `VIKUNJA_OIDC_AUTH_URL`
 - `VIKUNJA_OIDC_CLIENT_ID`
 - `VIKUNJA_OIDC_CLIENT_SECRET`
+- `VIKUNJA_AUTHENTIK_ONLY` (optional, default `false`)
 
 ## How to Run
 
@@ -38,19 +39,18 @@ With this config, the provider key is `authentik`, so the callback path in Vikun
 
 - `/auth/openid/authentik`
 
-## Running Without Authentik
+## Auth Mode Toggle
 
-If you do not want OIDC/Authentik integration and only want Vikunja running:
+Use `VIKUNJA_AUTHENTIK_ONLY` to control whether local username/password login is available:
 
-- In `stack.yml`, edit the `vikunja_config` command block and set:
-  `auth.openid.enabled: false`
-- Remove the OpenID provider block under `auth.openid.providers`.
-- Remove these variables from `.env` and from `vikunja_config.environment` in `stack.yml`:
-  - `VIKUNJA_OIDC_AUTH_URL`
-  - `VIKUNJA_OIDC_CLIENT_ID`
-  - `VIKUNJA_OIDC_CLIENT_SECRET`
+- `VIKUNJA_AUTHENTIK_ONLY=false` (default):
+  - `auth.local.enabled: true`
+  - Both local auth and Authentik OIDC are available.
+- `VIKUNJA_AUTHENTIK_ONLY=true`:
+  - `auth.local.enabled: false`
+  - Authentik OIDC becomes the only login method.
 
-After that, redeploy the stack and Vikunja will use its normal login flow.
+After changing this value, redeploy the stack.
 
 ## Port Notes
 
