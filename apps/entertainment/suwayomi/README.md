@@ -17,13 +17,16 @@ docker compose -f stack.yml --env-file .env up -d
 
 ## Files
 
-- `stack.yml` - Suwayomi container stack definition.
+- `stack.yml` - Suwayomi container stack definition (with optional FlareSolverr sidecar enabled by default).
 - `.env.example` - Optional environment variable template.
 
 ## Environment Variables
 
 - `SUWAYOMI_PORT` - Host port mapped to container port `4567`.
 - `JAVA_TOOL_OPTIONS` - JVM tuning (default in stack: `-Xmx2g`).
+- `FLARESOLVERR_ENABLED` - Enables Suwayomi integration with FlareSolverr.
+- `FLARESOLVERR_URL` - Internal URL Suwayomi uses to reach FlareSolverr.
+- `TZ` - Time zone for FlareSolverr container.
 
 ## Notes
 
