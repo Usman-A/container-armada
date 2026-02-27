@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   suwayomi:
-    image: ghcr.io/suwayomi/suwayomi-server:stable
+    image: ghcr.io/suwayomi/suwayomi-server:preview
     container_name: suwayomi-server
     restart: unless-stopped
     volumes:
@@ -13,11 +13,20 @@ services:
       - "${SUWAYOMI_PORT:-4567}:4567"
     environment:
       - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:--Xmx2g}
+      - FLARESOLVERR_ENABLED=${FLARESOLVERR_ENABLED:-true}
+      - FLARESOLVERR_URL=${FLARESOLVERR_URL:-http://flaresolverr:8191}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4567/api/graphql"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+  flaresolverr:
+    image: ghcr.io/thephaseless/byparr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ:-Etc/UTC}
 
 volumes:
   suwayomi_data:
