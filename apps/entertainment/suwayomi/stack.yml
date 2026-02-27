@@ -5,9 +5,8 @@ services:
     image: ghcr.io/suwayomi/suwayomi-server:preview
     container_name: suwayomi-server
     restart: unless-stopped
+    user: "1000:1000"
     volumes:
-      # Downloads MUST come first.
-      - suwayomi_downloads:/home/suwayomi/.local/share/Tachidesk/downloads
       - suwayomi_data:/home/suwayomi/.local/share/Tachidesk
     ports:
       - "${SUWAYOMI_PORT:-4567}:4567"
@@ -30,6 +29,4 @@ services:
 
 volumes:
   suwayomi_data:
-    driver: local
-  suwayomi_downloads:
     driver: local
