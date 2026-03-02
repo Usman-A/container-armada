@@ -51,6 +51,19 @@ Contributions are welcome! If you have a stack you'd like to share, please submi
 6. Include a `How to Run` section in the stack `README.md` with clear startup guidance (for example: creating `.env` from `.env.example` and a `docker compose` command).
 7. Optionally add supporting documentation links in the stack `README.md` so future users can quickly understand and maintain the stack.
 
+## Commit and PR Naming
+
+To keep history easy to scan, use these prefixes in commit messages and PR titles:
+
+- `[New Service][ServiceName]` for first-time stack additions.
+- `[Update][ServiceName]` for changes to an existing stack.
+- `[Fix][ServiceName]` for bug fixes/regressions in an existing stack.
+
+Examples:
+
+- `[New Service][PegaProx] add initial stack, env template, and README`
+- `[Update][Vikunja] add authentik-only auth toggle`
+- `[Fix][Authentik] correct postgres healthcheck command`
 
 > **Never commit real `.env` files or secrets in the repository.**
 ## License

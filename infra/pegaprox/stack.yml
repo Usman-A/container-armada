@@ -1,0 +1,27 @@
+services:
+  pegaprox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${PEGAPROX_IMAGE:-pegaprox}
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "${COMPOSE_PORT_HTTP:-5000}:5000"
+    volumes:
+      - pegaprox-config:/app/config
+      - pegaprox-logs:/app/logs
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  pegaprox-config:
+    driver: local
+  pegaprox-logs:
+    driver: local
