@@ -1,0 +1,28 @@
+name: nextcloud-aio
+
+services:
+  nextcloud-aio-mastercontainer:
+    image: ghcr.io/nextcloud-releases/all-in-one:latest
+    container_name: nextcloud-aio-mastercontainer
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${AIO_ADMIN_PORT:-18080}:8080"
+    volumes:
+      # Do not rename this; AIO expects the exact mastercontainer volume name.
+      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      APACHE_PORT: "${NEXTCLOUD_APACHE_PORT:-21100}"
+      APACHE_IP_BINDING: "${NEXTCLOUD_APACHE_IP_BINDING:-10.0.0.22}"
+      # Host path for Nextcloud user file data. Set this before first install.
+      NEXTCLOUD_DATADIR: "${NEXTCLOUD_DATADIR:-/mnt/nextcloud/data}"
+      NEXTCLOUD_STARTUP_APPS: "${NEXTCLOUD_STARTUP_APPS:-deck twofactor_totp tasks calendar contacts notes}"
+      NEXTCLOUD_UPLOAD_LIMIT: "${NEXTCLOUD_UPLOAD_LIMIT:-16G}"
+      NEXTCLOUD_MAX_TIME: "${NEXTCLOUD_MAX_TIME:-3600}"
+      NEXTCLOUD_MEMORY_LIMIT: "${NEXTCLOUD_MEMORY_LIMIT:-1024M}"
+      SKIP_DOMAIN_VALIDATION: "${SKIP_DOMAIN_VALIDATION:-false}"
+
+volumes:
+  nextcloud_aio_mastercontainer:
+    name: nextcloud_aio_mastercontainer
