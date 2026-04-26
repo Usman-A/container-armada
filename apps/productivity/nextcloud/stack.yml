@@ -14,12 +14,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       APACHE_PORT: "${NEXTCLOUD_APACHE_PORT:-21100}"
-      APACHE_IP_BINDING: "${NEXTCLOUD_APACHE_IP_BINDING:-10.0.0.22}"
+      APACHE_IP_BINDING: "${NEXTCLOUD_APACHE_IP_BINDING:-0.0.0.0}"
       # Host path for Nextcloud user file data. Set this before first install.
       NEXTCLOUD_DATADIR: "${NEXTCLOUD_DATADIR:-/mnt/nextcloud/data}"
       NEXTCLOUD_STARTUP_APPS: "${NEXTCLOUD_STARTUP_APPS:-deck twofactor_totp tasks calendar contacts notes}"
-      NEXTCLOUD_UPLOAD_LIMIT: "${NEXTCLOUD_UPLOAD_LIMIT:-16G}"
-      NEXTCLOUD_MAX_TIME: "${NEXTCLOUD_MAX_TIME:-3600}"
+      NEXTCLOUD_UPLOAD_LIMIT: "${NEXTCLOUD_UPLOAD_LIMIT:-100G}"
+      NEXTCLOUD_MAX_TIME: "${NEXTCLOUD_MAX_TIME:-7200}"
       NEXTCLOUD_MEMORY_LIMIT: "${NEXTCLOUD_MEMORY_LIMIT:-1024M}"
       SKIP_DOMAIN_VALIDATION: "${SKIP_DOMAIN_VALIDATION:-false}"
 
