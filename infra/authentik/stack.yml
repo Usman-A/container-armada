@@ -16,6 +16,23 @@ services:
       retries: 5
     volumes:
       - database:/var/lib/postgresql/data
+    networks:
+      - authentik_internal
+
+  redis:
+    image: docker.io/library/redis:alpine
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - redis:/data
+    networks:
+      - authentik_internal
 
   server:
     image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.12.4}
@@ -24,18 +41,31 @@ services:
     depends_on:
       postgresql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       AUTHENTIK_POSTGRESQL__HOST: postgresql
       AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
       AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
-    ports:
-      - ${COMPOSE_PORT_HTTP:-9000}:9000
-      - ${COMPOSE_PORT_HTTPS:-9443}:9443
+    # No host ports: Caddy reaches the server over the shared `caddy` network.
+    labels:
+      caddy: ${AUTHENTIK_DOMAIN:?authentik domain required}
+      caddy.reverse_proxy: "{{upstreams 9000}}"
+    healthcheck:
+      test: ["CMD", "ak", "healthcheck"]
+      start_period: 60s
+      interval: 30s
+      timeout: 30s
+      retries: 3
     volumes:
-      - ./data:/data
+      - media:/media
       - ./custom-templates:/templates
+    networks:
+      - caddy               # ingress only (shared with Caddy)
+      - authentik_internal  # private to postgres/redis/worker
 
   worker:
     image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.12.4}
@@ -45,18 +75,43 @@ services:
     depends_on:
       postgresql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       AUTHENTIK_POSTGRESQL__HOST: postgresql
       AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
       AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+    healthcheck:
+      test: ["CMD", "ak", "healthcheck"]
+      start_period: 60s
+      interval: 30s
+      timeout: 30s
+      retries: 3
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./data:/data
+      - media:/media
       - ./certs:/certs
       - ./custom-templates:/templates
+    networks:
+      - authentik_internal
+
+networks:
+  # Shared ingress network created by the caddy-docker-proxy stack.
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
+  # Private to this stack; other apps on different networks cannot reach
+  # postgres or the worker. NOT marked `internal: true` because the worker
+  # needs outbound internet (email, GeoIP, outpost data).
+  authentik_internal:
 
 volumes:
   database:
+    driver: local
+  redis:
+    driver: local
+  media:
     driver: local
