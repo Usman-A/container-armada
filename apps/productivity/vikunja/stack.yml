@@ -16,6 +16,8 @@ services:
       retries: 5
     volumes:
       - vikunja_db:/var/lib/postgresql/data
+    networks:
+      - vikunja_internal
 
   vikunja_config:
     image: alpine:3.20
@@ -63,9 +65,12 @@ services:
         sed -n -e 's/clientsecret:.*/clientsecret: "<redacted>"/g' -e 's/clientid:.*/clientid: "<redacted>"/g' -e '1,80p' /work/config.yml
     volumes:
       - vikunja_config:/work
+    networks:
+      - vikunja_internal
 
   vikunja:
-    image: vikunja/vikunja:latest
+    # Pinned for reproducible, Komodo-managed auto-deploys. Bump deliberately.
+    image: vikunja/vikunja:${VIKUNJA_TAG:-0.24.6}
     user: "0:0"
     restart: unless-stopped
     depends_on:
@@ -81,12 +86,27 @@ services:
       VIKUNJA_DATABASE_PASSWORD: ${VIKUNJA_DB_PASSWORD:?database password required}
       # Kept here as a runtime fallback and for parity with generated config.
       VIKUNJA_SERVICE_PUBLICURL: ${VIKUNJA_SERVICE_PUBLICURL:-https://vikunja.example.com}
-    ports:
-      - "${COMPOSE_PORT_HTTP:-3456}:3456"
-      - "${COMPOSE_PORT_HTTPS:-3443}:3456"
+    # No host ports: Caddy reaches this container over the shared `caddy` network.
+    labels:
+      caddy: ${VIKUNJA_DOMAIN:?vikunja domain required}
+      caddy.reverse_proxy: "{{upstreams 3456}}"
     volumes:
       - vikunja_config:/etc/vikunja:ro
       - vikunja_files:/app/vikunja/files
+    networks:
+      - caddy            # ingress only (shared with Caddy)
+      - vikunja_internal # private app<->db network
+
+networks:
+  # Shared ingress network created by the caddy-docker-proxy stack.
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
+  # Private to this stack; other apps on different networks cannot reach the db.
+  # Optional hardening: add `internal: true` to also block this network's
+  # outbound internet (safe here — only the db lives on it; the web service
+  # egresses via the caddy network).
+  vikunja_internal:
 
 volumes:
   vikunja_db:
