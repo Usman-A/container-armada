@@ -22,14 +22,26 @@ services:
     init: true
     restart: unless-stopped
     ports:
-      - "${AIO_ADMIN_PORT:-18080}:8080"
+      # AIO admin/setup UI (HTTPS, self-signed). Bind to a private address
+      # (e.g. a Tailscale IP via AIO_ADMIN_BIND) — it should NOT be public.
+      - "${AIO_ADMIN_BIND:-0.0.0.0}:${AIO_ADMIN_PORT:-18080}:8080"
     volumes:
       # Do not rename this; AIO expects the exact mastercontainer volume name.
       - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - caddy   # so caddy-docker-proxy can read the labels below
+    labels:
+      # AIO is the label-per-container exception: the public site proxies to the
+      # AIO-managed apache container, which joins `caddy` via APACHE_ADDITIONAL_NETWORK.
+      caddy: ${NEXTCLOUD_DOMAIN:?nextcloud domain required}
+      caddy.reverse_proxy: "nextcloud-aio-apache:${NEXTCLOUD_APACHE_PORT:-11000}"
     environment:
-      APACHE_PORT: "${NEXTCLOUD_APACHE_PORT:-21100}"
-      APACHE_IP_BINDING: "${NEXTCLOUD_APACHE_IP_BINDING:-0.0.0.0}"
+      APACHE_PORT: "${NEXTCLOUD_APACHE_PORT:-11000}"
+      # Real ingress is via the shared caddy network; keep the host-port binding
+      # on localhost so nothing apache-related is published publicly.
+      APACHE_IP_BINDING: "${NEXTCLOUD_APACHE_IP_BINDING:-127.0.0.1}"
+      APACHE_ADDITIONAL_NETWORK: "${CADDY_INGRESS_NETWORK:-caddy}"
       # Host path for Nextcloud user file data. Set NEXTCLOUD_DATADIR before first install;
       # changing it after initial setup requires a full data migration.
       NEXTCLOUD_DATADIR: "${NEXTCLOUD_DATADIR:-/mnt/nextcloud/data}"
@@ -37,7 +49,13 @@ services:
       NEXTCLOUD_UPLOAD_LIMIT: "${NEXTCLOUD_UPLOAD_LIMIT:-100G}"
       NEXTCLOUD_MAX_TIME: "${NEXTCLOUD_MAX_TIME:-7200}"
       NEXTCLOUD_MEMORY_LIMIT: "${NEXTCLOUD_MEMORY_LIMIT:-1024M}"
-      SKIP_DOMAIN_VALIDATION: "${SKIP_DOMAIN_VALIDATION:-false}"
+      # Behind Cloudflare + Caddy the built-in domain check can't reach AIO; skip it.
+      SKIP_DOMAIN_VALIDATION: "${SKIP_DOMAIN_VALIDATION:-true}"
+
+networks:
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
 
 volumes:
   nextcloud_aio_mastercontainer:
