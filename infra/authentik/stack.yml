@@ -36,6 +36,7 @@ services:
 
   server:
     image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.12.4}
+    container_name: authentik-server   # stable name so forward_auth clients can target it
     command: server
     restart: unless-stopped
     depends_on:

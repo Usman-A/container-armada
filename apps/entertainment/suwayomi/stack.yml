@@ -1,24 +1,46 @@
-version: "3.8"
+name: suwayomi
+
+# Suwayomi (manga server) running ON the VPS so it stays up independent of the
+# home network, gated by Authentik forward_auth via caddy-docker-proxy labels.
+# byparr/flaresolverr handles Cloudflare-protected sources.
+#
+# The forward_auth pattern (mirrors authentik's single-application Caddy config):
+#   1_reverse_proxy  — expose authentik's embedded-outpost endpoints on this host
+#   2_forward_auth   — gate every request through authentik
+#   3_reverse_proxy  — proxy authorized traffic to Suwayomi
+# Talking to authentik-server directly over the shared `caddy` network keeps the
+# original Host intact, so authentik matches the (forward_single) provider whose
+# external host is this domain — no Cloudflare/Host rewriting needed.
 
 services:
   suwayomi:
-    image: ghcr.io/suwayomi/suwayomi-server:preview
+    image: ghcr.io/suwayomi/suwayomi-server:${SUWAYOMI_TAG:-preview}
     container_name: suwayomi-server
     restart: unless-stopped
     user: "1000:1000"
+    depends_on:
+      - flaresolverr
     volumes:
       - suwayomi_data:/home/suwayomi/.local/share/Tachidesk
-    ports:
-      - "${SUWAYOMI_PORT:-4567}:4567"
     environment:
       - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:--Xmx2g}
       - FLARESOLVERR_ENABLED=${FLARESOLVERR_ENABLED:-true}
       - FLARESOLVERR_URL=${FLARESOLVERR_URL:-http://flaresolverr:8191}
+    labels:
+      caddy: ${SUWAYOMI_DOMAIN:?suwayomi domain required}
+      caddy.1_reverse_proxy: "/outpost.goauthentik.io/* http://authentik-server:9000"
+      caddy.2_forward_auth: "http://authentik-server:9000"
+      caddy.2_forward_auth.uri: "/outpost.goauthentik.io/auth/caddy"
+      caddy.2_forward_auth.copy_headers: "X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid"
+      caddy.3_reverse_proxy: "{{upstreams 4567}}"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4567/api/graphql"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - caddy               # ingress (shared with Caddy + authentik-server)
+      - suwayomi_internal   # private link to flaresolverr
 
   flaresolverr:
     image: ghcr.io/thephaseless/byparr:latest
@@ -26,6 +48,14 @@ services:
     restart: unless-stopped
     environment:
       - TZ=${TZ:-Etc/UTC}
+    networks:
+      - suwayomi_internal
+
+networks:
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
+  suwayomi_internal:
 
 volumes:
   suwayomi_data:
