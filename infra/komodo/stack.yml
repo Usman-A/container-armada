@@ -20,7 +20,9 @@ services:
       komodo-ferretdb:
         condition: service_healthy
     ports:
-      - "${KOMODO_PORT:-9120}:9120"
+      # Bind defaults to all interfaces; set KOMODO_BIND to a specific address
+      # (e.g. a Tailscale IP) to keep the UI off the public internet.
+      - "${KOMODO_BIND:-0.0.0.0}:${KOMODO_PORT:-9120}:9120"
     volumes:
       - komodo-core-repos:/etc/komodo/repos
       - komodo-core-stacks:/etc/komodo/stacks
@@ -78,7 +80,7 @@ services:
       PERIPHERY_PASSKEY: "${KOMODO_PASSKEY}"
       PERIPHERY_PORT: "${PERIPHERY_PORT:-8120}"
     ports:
-      - "${PERIPHERY_PORT:-8120}:8120"
+      - "${KOMODO_BIND:-0.0.0.0}:${PERIPHERY_PORT:-8120}:8120"
     networks:
       - komodo-internal
     security_opt:
