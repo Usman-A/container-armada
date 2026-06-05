@@ -1,5 +1,20 @@
 name: nextcloud-aio
 
+# Nextcloud All-in-One (AIO) manages its own child containers internally.
+# NEXTCLOUD_DATADIR is a host path exposed directly into AIO's containers.
+#
+# Obsidian vault sharing:
+#   A subdirectory at $NEXTCLOUD_DATADIR/shared/obsidian is the canonical
+#   Obsidian vault location. Other containers (sync apps, productivity tools)
+#   can bind-mount this same host path to access vaults without copying data.
+#   Create the directory before first run:
+#     mkdir -p $NEXTCLOUD_DATADIR/shared/obsidian
+#
+# Backup note:
+#   Because NEXTCLOUD_DATADIR is a host path (bind mount), any file-based
+#   backup tool (restic, rclone, etc.) can back it up directly. See the
+#   infra/backup stack for the recommended approach.
+
 services:
   nextcloud-aio-mastercontainer:
     image: ghcr.io/nextcloud-releases/all-in-one:latest
@@ -15,7 +30,8 @@ services:
     environment:
       APACHE_PORT: "${NEXTCLOUD_APACHE_PORT:-21100}"
       APACHE_IP_BINDING: "${NEXTCLOUD_APACHE_IP_BINDING:-0.0.0.0}"
-      # Host path for Nextcloud user file data. Set this before first install.
+      # Host path for Nextcloud user file data. Set NEXTCLOUD_DATADIR before first install;
+      # changing it after initial setup requires a full data migration.
       NEXTCLOUD_DATADIR: "${NEXTCLOUD_DATADIR:-/mnt/nextcloud/data}"
       NEXTCLOUD_STARTUP_APPS: "${NEXTCLOUD_STARTUP_APPS:-deck twofactor_totp tasks calendar contacts notes}"
       NEXTCLOUD_UPLOAD_LIMIT: "${NEXTCLOUD_UPLOAD_LIMIT:-100G}"
