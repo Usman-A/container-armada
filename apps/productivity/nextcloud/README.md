@@ -1,50 +1,52 @@
 # Nextcloud AIO
 
-Minimal Nextcloud AIO stack for host-IP reverse proxying with Caddy.
+Nextcloud All-in-One behind `caddy-docker-proxy`. AIO's apache container joins the
+shared `caddy` network so Caddy reaches it container-to-container — no public host
+port — and the admin/setup UI is kept on a private (e.g. Tailscale) address.
 
 ## Env Vars
 
-- `AIO_ADMIN_PORT` - Host port for the AIO admin UI.
-- `NEXTCLOUD_APACHE_PORT` - Host port Caddy proxies to for normal Nextcloud traffic.
-- `NEXTCLOUD_APACHE_IP_BINDING` - Host IP the AIO-managed Apache container binds to.
-- `NEXTCLOUD_DATADIR` - Host path for Nextcloud `ncdata`. This is the long-term location for user file data.
-- `NEXTCLOUD_STARTUP_APPS` - Apps enabled during initial setup.
-- `NEXTCLOUD_UPLOAD_LIMIT` - Upload size limit.
-- `NEXTCLOUD_MAX_TIME` - PHP max execution time.
-- `NEXTCLOUD_MEMORY_LIMIT` - PHP memory limit.
-- `SKIP_DOMAIN_VALIDATION` - Usually keep `false`.
+- `NEXTCLOUD_DOMAIN` - Public domain Caddy serves Nextcloud on (used by the caddy label).
+- `CADDY_INGRESS_NETWORK` - Shared Caddy ingress network (default `caddy`).
+- `AIO_ADMIN_PORT` / `AIO_ADMIN_BIND` - Host port + bind address for the AIO admin UI.
+  Bind to a private/Tailscale IP — do **not** expose it publicly.
+- `NEXTCLOUD_APACHE_PORT` - Port AIO's apache listens on; Caddy proxies to
+  `nextcloud-aio-apache:<this>`.
+- `NEXTCLOUD_APACHE_IP_BINDING` - Keep `127.0.0.1` (host publish stays local; real
+  ingress is via the caddy network).
+- `NEXTCLOUD_DATADIR` - Host path for Nextcloud `ncdata` (long-term user file data).
+- `NEXTCLOUD_STARTUP_APPS` / `NEXTCLOUD_UPLOAD_LIMIT` / `NEXTCLOUD_MAX_TIME` /
+  `NEXTCLOUD_MEMORY_LIMIT` - app + PHP/runtime tuning.
+- `SKIP_DOMAIN_VALIDATION` - keep `true` behind Cloudflare + Caddy.
 
 ## How to Run
 
 ```bash
-docker compose -f stack.yml --env-file .env.example up -d
+cp .env.example .env   # edit values
+docker compose -f stack.yml --env-file .env up -d
 ```
 
-Before first boot, make sure `NEXTCLOUD_DATADIR` exists on the host and keep that path stable after setup.
-Open the AIO admin UI at `https://10.0.0.10:18080` and use the server IP, not the public domain.
-During setup, set the Nextcloud domain to `cloud.example.com`.
+Then open the AIO admin UI at `https://<private-ip>:${AIO_ADMIN_PORT}` (e.g. a Tailscale
+IP), save the generated passphrase, set the Nextcloud domain to your `${NEXTCLOUD_DOMAIN}`
+(e.g. `cloud.example.com`), and start the containers.
 
-## Caddy
+## Reverse proxy (caddy-docker-proxy)
 
-```caddy
-cloud.example.com {
-    reverse_proxy http://10.0.0.10:21100
-}
+AIO's apache joins `caddy` via `APACHE_ADDITIONAL_NETWORK`, so the public site proxies
+to the apache service by name — no host IP, no published apache port:
+
+```yaml
+labels:
+  caddy: ${NEXTCLOUD_DOMAIN}
+  caddy.reverse_proxy: "nextcloud-aio-apache:${NEXTCLOUD_APACHE_PORT}"
 ```
-
-This stack intentionally does not use `APACHE_ADDITIONAL_NETWORK`, external Docker networks, or service-name proxying.
-Caddy should connect to the host IP and Apache port directly.
 
 ## ncdata
 
-The `ncdata` approach stores Nextcloud user files on a dedicated host path:
-
-- `/mnt/nextcloud/data`
-
-That makes the data location easier to understand, back up with tools like Kopia, and migrate later.
-Treat it as a first-install decision and do not change it after Nextcloud is initialized.
+Nextcloud user files live on a dedicated host path (`NEXTCLOUD_DATADIR`, e.g.
+`/mnt/nextcloud/data`). That makes the data easy to back up (restic/rclone, etc.) and
+migrate later. Treat it as a first-install decision and do not change it afterward.
 
 ## Authentik
 
-Authentik is not part of this compose.
-After Nextcloud is running, configure Authentik OIDC inside Nextcloud.
+OIDC SSO is configured **inside** Nextcloud after it's running (not part of this compose).

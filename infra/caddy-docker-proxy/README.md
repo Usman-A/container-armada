@@ -71,7 +71,7 @@ terminates TLS. Instead we use the **ACME DNS-01** challenge via the Cloudflare 
 
 Setup:
 1. Create a **scoped Cloudflare API token**: `Zone → DNS → Edit` and `Zone → Zone → Read`
-   for each zone you serve (example.com, example.org, example.net, ...). Put it in
+   for each zone you serve (example.com, example.org, ...). Put it in
    `.env` as `CLOUDFLARE_API_TOKEN` (never in the repo).
 2. Set each zone's **SSL/TLS mode to Full (strict)** in Cloudflare so the CF→origin hop
    uses the real Let's Encrypt cert Caddy obtains.
