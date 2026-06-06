@@ -1,0 +1,33 @@
+name: super-productivity
+
+# Super Productivity (local-first task manager) served as a static web app,
+# gated by Authentik forward_auth via caddy-docker-proxy (same pattern as suwayomi).
+# Task data lives in the browser; optionally enable WebDAV sync in the app
+# pointing at your Nextcloud for cross-device sync.
+
+services:
+  super-productivity:
+    image: johannesjo/super-productivity:${SUPER_PRODUCTIVITY_TAG:-latest}
+    container_name: super-productivity
+    restart: unless-stopped
+    labels:
+      caddy: ${SUPER_PRODUCTIVITY_DOMAIN:?super-productivity domain required}
+      caddy.1_reverse_proxy: "/outpost.goauthentik.io/* http://authentik-server:9000"
+      caddy.2_forward_auth: "http://authentik-server:9000"
+      caddy.2_forward_auth.uri: "/outpost.goauthentik.io/auth/caddy"
+      caddy.2_forward_auth.copy_headers: "X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid"
+      caddy.3_reverse_proxy: "{{upstreams 80}}"
+    networks:
+      - caddy
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+networks:
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
