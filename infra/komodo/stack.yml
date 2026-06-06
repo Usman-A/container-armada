@@ -57,8 +57,19 @@ services:
       # Auto-register the local periphery as a managed server (address + name)
       KOMODO_FIRST_SERVER: "${KOMODO_FIRST_SERVER:-https://komodo-periphery:8120}"
       KOMODO_FIRST_SERVER_NAME: "${KOMODO_FIRST_SERVER_NAME:-Local}"
+    # Optional public hostname (set KOMODO_DOMAIN), gated to the Tailscale network:
+    # only tailnet-sourced requests reach the UI; anyone else — including someone
+    # hitting the public listener with a spoofed Host header — is denied. Pairs
+    # with a DNS record pointing KOMODO_DOMAIN at the Tailscale IP.
+    labels:
+      caddy: ${KOMODO_DOMAIN:-}
+      caddy.@tailnet.remote_ip: 100.64.0.0/10
+      caddy.handle_0: "@tailnet"
+      caddy.handle_0.reverse_proxy: "{{upstreams 9120}}"
+      caddy.handle_1.respond: '"Hive is private — connect to the Tailscale VPN to access it." 403'
     networks:
       - komodo-internal
+      - caddy
     security_opt:
       - no-new-privileges:true
     logging:
@@ -140,6 +151,11 @@ services:
 networks:
   komodo-internal:
     name: komodo-internal
+  # Shared ingress network (from the caddy-docker-proxy stack). Only used when
+  # KOMODO_DOMAIN is set to expose the UI via Caddy; otherwise harmless.
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
 
 volumes:
   komodo-keys:
