@@ -39,6 +39,74 @@ Within these folders, each stack should be organized as follows:
 
 If a stack folder ends with `-WIP`, it is not yet confirmed working.
 
+## How the stacks fit together (reverse proxy, TLS & auth)
+
+Three shared conventions wire these stacks into one system:
+
+**1. Ingress via `caddy-docker-proxy`.** `infra/caddy-docker-proxy` runs a custom
+Caddy build (Caddy + the Cloudflare DNS plugin) that watches the Docker socket and
+configures itself from container **labels**. To expose a service you join the shared
+external `caddy` network and add labels:
+
+```yaml
+labels:
+  caddy: ${MY_DOMAIN}                       # domain kept out of the repo via env
+  caddy.reverse_proxy: "{{upstreams 8080}}" # container's address on the caddy net
+```
+
+`{{upstreams <port>}}` resolves to the container's IP on the `caddy` network, so **no
+host ports are needed**. Real domains never live in the repo — they come from your
+private `.env` (`${MY_DOMAIN}`).
+
+**2. TLS via Cloudflare DNS-01.** Caddy obtains real Let's Encrypt certs using the
+Cloudflare DNS-01 challenge (`CLOUDFLARE_API_TOKEN` + `ACME_EMAIL`). This works even
+for hostnames that resolve to a private/Tailscale IP, and for domains proxied through
+Cloudflare.
+
+**3. SSO gating via Authentik (forward auth).** To put a service behind Authentik
+login, replace the single `reverse_proxy` label with the ordered forward-auth pattern
+(see `apps/entertainment/suwayomi` and `apps/productivity/super-productivity`):
+
+```yaml
+labels:
+  caddy: ${MY_DOMAIN}
+  caddy.1_reverse_proxy: "/outpost.goauthentik.io/* http://authentik-server:9000"
+  caddy.2_forward_auth: "http://authentik-server:9000"
+  caddy.2_forward_auth.uri: "/outpost.goauthentik.io/auth/caddy"
+  caddy.2_forward_auth.copy_headers: "X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid"
+  caddy.3_reverse_proxy: "{{upstreams 8080}}"
+```
+
+The `N_` numeric prefixes order the directives. Caddy talks to `authentik-server`
+directly over the `caddy` network, so the original `Host` is preserved and Authentik
+matches the app by its **proxy provider (forward auth, single application)** external
+host. Each gated app needs that provider + an application assigned to the embedded
+outpost.
+
+## Image tags & update policy
+
+- Tags are **parameterised** (e.g. `${AUTHENTIK_TAG:-2025.12.4}`) so the default is
+  pinned but overridable per-deploy.
+- **Stateful / migration-sensitive apps are pinned** (Authentik, Postgres) — bump
+  deliberately and read release notes (Authentik runs DB migrations on upgrade).
+- **A few roll with upstream**: Nextcloud AIO (`all-in-one:latest`, self-updating by
+  design) and Suwayomi (`preview`, its active channel).
+
+## Stacks at a glance
+
+| Stack | Image(s) | Tag policy | Exposure | Auth |
+|---|---|---|---|---|
+| `infra/caddy-docker-proxy` | custom Caddy + Cloudflare DNS plugin | Caddy pinned `2.11.3` (plugin requires it) | host `:80`/`:443` | — |
+| `infra/komodo` | komodo-core/periphery `latest`; ferretdb `2`; postgres-documentdb `latest` | core/periphery `latest` | private — bind to a Tailscale IP via `KOMODO_BIND` | local admin |
+| `infra/authentik` | goauthentik/server `2025.12.4`; postgres `16-alpine`; redis `alpine` | **pinned** (DB migrations on upgrade) | `${AUTHENTIK_DOMAIN}` via caddy | it *is* the IdP |
+| `apps/productivity/nextcloud` | nextcloud-releases/all-in-one `latest` | self-updating (AIO) | `${NEXTCLOUD_DOMAIN}` via caddy (apache joins `caddy`) | Nextcloud login |
+| `apps/productivity/super-productivity` | johannesjo/super-productivity `latest` | `latest` | `${SUPER_PRODUCTIVITY_DOMAIN}` via caddy | **Authentik forward auth** |
+| `apps/entertainment/suwayomi` | suwayomi-server `preview`; byparr `latest` | `preview` channel | `${SUWAYOMI_DOMAIN}` via caddy | **Authentik forward auth** |
+| `apps/productivity/vikunja` | vikunja `${VIKUNJA_TAG:-0.24.6}`; postgres `16-alpine` | pinned | (template) | native OIDC option |
+| `infra/pegaprox` | local build | — | host `:5000` | (template) |
+
+> `vikunja` and `pegaprox` are **templates kept for reference — not currently deployed.**
+
 ## Contributing
 
 Contributions are welcome! If you have a stack you'd like to share, please submit a pull request with the following:
