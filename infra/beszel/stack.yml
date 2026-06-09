@@ -1,0 +1,65 @@
+name: beszel
+
+# Beszel — lightweight server & container monitoring (https://beszel.dev).
+#   beszel        — the hub: web UI + database (PocketBase), reads metrics from agents
+#   beszel-agent  — collects this host's CPU/mem/disk/net + per-container stats and
+#                   serves them to the hub on :45876 (host networking for true host stats)
+#
+# The hub connects OUT to each agent, authenticating with the hub's SSH public key
+# (set as the agent's KEY). Add this host in the hub UI as host.docker.internal:45876.
+#
+# Exposed via caddy-docker-proxy at BESZEL_DOMAIN, gated by Authentik forward_auth
+# (embedded outpost on authentik-server:9000) — same pattern as the other apps.
+
+services:
+  beszel:
+    image: henrygd/beszel:${BESZEL_TAG:-latest}
+    container_name: beszel
+    restart: unless-stopped
+    volumes:
+      - beszel_data:/beszel_data
+    extra_hosts:
+      - host.docker.internal:host-gateway   # so the hub can reach the host-mode agent
+    labels:
+      caddy: ${BESZEL_DOMAIN:?beszel domain required}
+      caddy.1_reverse_proxy: "/outpost.goauthentik.io/* http://authentik-server:9000"
+      caddy.2_forward_auth: "http://authentik-server:9000"
+      caddy.2_forward_auth.uri: "/outpost.goauthentik.io/auth/caddy"
+      caddy.2_forward_auth.copy_headers: "X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid"
+      caddy.3_reverse_proxy: "{{upstreams 8090}}"
+    networks:
+      - caddy
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  beszel-agent:
+    image: henrygd/beszel-agent:${BESZEL_TAG:-latest}
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host            # accurate host network/disk stats
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      LISTEN: ${BESZEL_AGENT_PORT:-45876}
+      # The hub's SSH public key (shown in the hub UI / its data dir). Not secret.
+      KEY: "${BESZEL_AGENT_KEY:-}"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
+
+volumes:
+  beszel_data:
