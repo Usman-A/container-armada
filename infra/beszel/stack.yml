@@ -18,8 +18,6 @@ services:
     restart: unless-stopped
     volumes:
       - beszel_data:/beszel_data
-    extra_hosts:
-      - host.docker.internal:host-gateway   # so the hub can reach the host-mode agent
     labels:
       caddy: ${BESZEL_DOMAIN:?beszel domain required}
       caddy.1_reverse_proxy: "/outpost.goauthentik.io/* http://authentik-server:9000"
@@ -29,6 +27,7 @@ services:
       caddy.3_reverse_proxy: "{{upstreams 8090}}"
     networks:
       - caddy
+      - beszel-internal      # private link to the agent (avoids the host firewall)
     security_opt:
       - no-new-privileges:true
     logging:
@@ -41,13 +40,19 @@ services:
     image: henrygd/beszel-agent:${BESZEL_TAG:-latest}
     container_name: beszel-agent
     restart: unless-stopped
-    network_mode: host            # accurate host network/disk stats
+    # Bridge networking on the shared beszel-internal net: the hub reaches the agent
+    # at beszel-agent:45876 without crossing the host firewall. CPU/RAM/disk come from
+    # the shared kernel + host PID namespace so they're host-accurate; the docker
+    # socket gives per-container stats.
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       LISTEN: ${BESZEL_AGENT_PORT:-45876}
       # The hub's SSH public key (shown in the hub UI / its data dir). Not secret.
       KEY: "${BESZEL_AGENT_KEY:-}"
+    pid: host                # host processes + accurate host disk/proc stats
+    networks:
+      - beszel-internal
     security_opt:
       - no-new-privileges:true
     logging:
@@ -60,6 +65,8 @@ networks:
   caddy:
     name: ${CADDY_INGRESS_NETWORK:-caddy}
     external: true
+  beszel-internal:
+    name: beszel-internal
 
 volumes:
   beszel_data:
