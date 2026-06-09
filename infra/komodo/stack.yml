@@ -57,6 +57,12 @@ services:
       # Auto-register the local periphery as a managed server (address + name)
       KOMODO_FIRST_SERVER: "${KOMODO_FIRST_SERVER:-https://komodo-periphery:8120}"
       KOMODO_FIRST_SERVER_NAME: "${KOMODO_FIRST_SERVER_NAME:-Local}"
+      # OIDC SSO (Authentik). Off by default; set the vars in your deploy env to enable.
+      # Authentik redirect URI: ${KOMODO_HOST}/auth/oidc/callback
+      KOMODO_OIDC_ENABLED: "${KOMODO_OIDC_ENABLED:-false}"
+      KOMODO_OIDC_PROVIDER: "${KOMODO_OIDC_PROVIDER:-}"
+      KOMODO_OIDC_CLIENT_ID: "${KOMODO_OIDC_CLIENT_ID:-}"
+      KOMODO_OIDC_CLIENT_SECRET: "${KOMODO_OIDC_CLIENT_SECRET:-}"
     # Optional public hostname (set KOMODO_DOMAIN), gated to the Tailscale network:
     # only tailnet-sourced requests reach the UI; anyone else — including someone
     # hitting the public listener with a spoofed Host header — is denied. Pairs
