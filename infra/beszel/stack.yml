@@ -19,10 +19,15 @@ services:
     volumes:
       - beszel_data:/beszel_data
     labels:
-      # Auth is handled inside Beszel via OIDC (Authentik), not forward_auth — so the
-      # "Continue with Authentik" button works as a normal OAuth redirect.
+      # Gated by Authentik forward_auth (embedded outpost). Beszel keeps its own
+      # login behind the gate — Beszel's PocketBase OIDC gave a blank callback page,
+      # so we use the proxy-gate model instead.
       caddy: ${BESZEL_DOMAIN:?beszel domain required}
-      caddy.reverse_proxy: "{{upstreams 8090}}"
+      caddy.1_reverse_proxy: "/outpost.goauthentik.io/* http://authentik-server:9000"
+      caddy.2_forward_auth: "http://authentik-server:9000"
+      caddy.2_forward_auth.uri: "/outpost.goauthentik.io/auth/caddy"
+      caddy.2_forward_auth.copy_headers: "X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid"
+      caddy.3_reverse_proxy: "{{upstreams 8090}}"
     networks:
       - caddy
       - beszel-internal      # private link to the agent (avoids the host firewall)
