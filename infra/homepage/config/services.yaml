@@ -1,0 +1,58 @@
+- Backups:
+    - restic → Google Drive:
+        icon: mdi-cloud-upload-outline
+        href: https://beszel.usmanasad.ca
+        description: Encrypted offsite backup (per-app status)
+        widget:
+          type: customapi
+          url: http://homepage-status/backup-status.json
+          refreshInterval: 30000
+          display: list
+          mappings:
+            - field:
+                running: app
+              label: Running now
+            - field:
+                apps:
+                  nextcloud: status
+              label: Nextcloud
+            - field:
+                apps:
+                  authentik: status
+              label: Authentik
+            - field:
+                apps:
+                  suwayomi: status
+              label: Suwayomi
+            - field:
+                apps:
+                  komodo: status
+              label: Komodo
+
+- Services:
+    - Hive (Komodo):
+        icon: mdi-docker
+        href: https://hive.usmanasad.ca
+        description: Container & stack management
+    - Nextcloud:
+        icon: nextcloud
+        href: https://cloud.usmanasad.ca
+        description: Files, notes & Obsidian vault
+    - Authentik:
+        icon: authentik
+        href: https://auth.usmanasad.ca
+        description: SSO / identity
+    - Suwayomi:
+        icon: mdi-book-open-page-variant
+        href: https://manga.usmanasad.ca
+        description: Manga library
+    - Super Productivity:
+        icon: mdi-checkbox-marked-circle-outline
+        href: https://tasks.usmanasad.ca
+        description: Tasks & time tracking
+
+- Monitoring:
+    - Beszel:
+        icon: mdi-chart-areaspline
+        href: https://beszel.usmanasad.ca
+        description: Server & container metrics (vps · unicron · nemesis)

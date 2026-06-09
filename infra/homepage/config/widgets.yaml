@@ -1,0 +1,13 @@
+- greeting:
+    text_size: xl
+    text: Homelab
+
+- datetime:
+    text_size: l
+    format:
+      dateStyle: long
+      timeStyle: short
+
+- search:
+    provider: duckduckgo
+    target: _blank

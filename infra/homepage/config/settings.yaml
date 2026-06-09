@@ -1,0 +1,15 @@
+title: Homelab
+theme: dark
+color: slate
+headerStyle: clean
+target: _blank
+layout:
+  Backups:
+    style: row
+    columns: 1
+  Services:
+    style: row
+    columns: 4
+  Monitoring:
+    style: row
+    columns: 2

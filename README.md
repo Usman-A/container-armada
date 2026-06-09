@@ -99,7 +99,8 @@ outpost.
 | `infra/caddy-docker-proxy` | custom Caddy + Cloudflare DNS plugin | Caddy pinned `2.11.3` (plugin requires it) | host `:80`/`:443` | — |
 | `infra/komodo` | komodo-core/periphery `latest`; ferretdb `2`; postgres-documentdb `latest` | core/periphery `latest` | private — bind to a Tailscale IP via `KOMODO_BIND` | local admin |
 | `infra/authentik` | goauthentik/server `2025.12.4`; postgres `16-alpine`; redis `alpine` | **pinned** (DB migrations on upgrade) | `${AUTHENTIK_DOMAIN}` via caddy | it *is* the IdP |
-| `infra/beszel` | henrygd/beszel `latest`; henrygd/beszel-agent `latest` | `latest` | `${BESZEL_DOMAIN}` via caddy (agent on host net `:45876`) | **Authentik forward auth** |
+| `infra/beszel` | henrygd/beszel `latest`; henrygd/beszel-agent `latest` | `latest` | `${BESZEL_DOMAIN}` via caddy (agent on bridge `:45876`) | **Authentik forward auth** |
+| `infra/homepage` | gethomepage/homepage `latest`; nginx `alpine` (status JSON) | `latest` | `${HOMEPAGE_DOMAIN}` via caddy | **Authentik forward auth** |
 | `apps/productivity/nextcloud` | nextcloud-releases/all-in-one `latest` | self-updating (AIO) | `${NEXTCLOUD_DOMAIN}` via caddy (apache joins `caddy`) | Nextcloud login |
 | `apps/productivity/super-productivity` | johannesjo/super-productivity `latest` | `latest` | `${SUPER_PRODUCTIVITY_DOMAIN}` via caddy | **Authentik forward auth** |
 | `apps/entertainment/suwayomi` | suwayomi-server `preview`; byparr `latest` | `preview` channel | `${SUWAYOMI_DOMAIN}` via caddy | **Authentik forward auth** |
