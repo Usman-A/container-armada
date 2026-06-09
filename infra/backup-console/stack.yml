@@ -1,0 +1,40 @@
+name: backup-console
+
+# Read-only web terminal (ttyd) that attaches to the host's `homelab-backup` tmux
+# session, so the live restic backup can be watched in the browser. Linked from the
+# Homepage "Backups" tile. Gated by Authentik forward auth.
+
+services:
+  backup-console:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${BACKUP_CONSOLE_IMAGE:-backup-console:local}
+    container_name: backup-console
+    restart: unless-stopped
+    user: "1000:1000"          # alien — owns the tmux socket
+    volumes:
+      # the tmux socket dir (backup-start.sh uses a fixed socket here) + the log
+      - ${BACKUP_TMUX_DIR:-/home/alien/lab/deployments/.tmux}:/sock
+      - ${BACKUP_LOG_FILE:-/home/alien/lab/deployments/backup.log}:/backup.log:ro
+    labels:
+      caddy: ${BACKUP_CONSOLE_DOMAIN:?backup console domain required}
+      caddy.1_reverse_proxy: "/outpost.goauthentik.io/* http://authentik-server:9000"
+      caddy.2_forward_auth: "http://authentik-server:9000"
+      caddy.2_forward_auth.uri: "/outpost.goauthentik.io/auth/caddy"
+      caddy.2_forward_auth.copy_headers: "X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid"
+      caddy.3_reverse_proxy: "{{upstreams 7681}}"
+    networks:
+      - caddy
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+networks:
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true

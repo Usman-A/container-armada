@@ -1,8 +1,8 @@
 - Backups:
     - restic → Google Drive:
         icon: mdi-cloud-upload-outline
-        href: https://beszel.usmanasad.ca
-        description: Encrypted offsite backup (per-app status)
+        href: https://backup.usmanasad.ca
+        description: Click to watch the live backup console
         widget:
           type: customapi
           url: http://homepage-status/backup-status.json
