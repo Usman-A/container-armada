@@ -1,0 +1,66 @@
+name: hermes
+
+# Hermes Agent (Nous Research) — self-hosted self-improving AI agent: gateway + supervised web
+# dashboard (9119), built-in Kanban, persistent memory/skills, sandboxed terminal.
+# Exposure: TAILSCALE-GATED at the Caddy edge (same pattern as hive.usmanasad.ca) — only tailnet
+# clients reach the dashboard; everyone else gets a 403. The dashboard ALSO runs its own basic auth
+# (defense in depth). Hermes supports native OIDC too: to use Authentik SSO directly, create an
+# Authentik OAuth2/OIDC provider and set HERMES_DASHBOARD_OIDC_ISSUER + _CLIENT_ID (see README) — a
+# planned follow-up; basic auth is used for the initial bring-up.
+#
+# SECURITY: TERMINAL_ENV defaults to `local` (commands run inside THIS container — a sandbox as long
+# as no host docker.sock / broad host mounts are added). For real dev access, mount a SCOPED repos
+# dir and use a dedicated deploy key; only switch to TERMINAL_ENV=docker with eyes open. The
+# OpenAI-compatible API server (8642) is intentionally NOT exposed — only the dashboard is proxied.
+# LLM: DeepSeek (native DEEPSEEK_API_KEY).
+
+services:
+  hermes:
+    image: ${HERMES_IMAGE:-nousresearch/hermes-agent:latest}
+    container_name: hermes
+    restart: unless-stopped
+    command: gateway run
+    environment:
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_HOST: 0.0.0.0
+      HERMES_DASHBOARD_PORT: "9119"
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${HERMES_DASHBOARD_BASIC_AUTH_USERNAME:-admin}
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD:?dashboard password required}
+      HERMES_TIMEZONE: ${HERMES_TIMEZONE:-America/Toronto}
+      TERMINAL_ENV: ${HERMES_TERMINAL_ENV:-local}
+      # API server stays loopback-only (not proxied).
+      API_SERVER_HOST: 127.0.0.1
+      # LLM: DeepSeek (supplied via secret manager).
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      # Optional messaging channels (leave empty to disable):
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+    volumes:
+      - hermes_data:/opt/data
+      # Scoped dev/vault access (enable when ready — see DESIGN NOTE A in MIGRATION.md):
+      # - ${OBSIDIAN_VAULT_PATH:-/dev/null}:/opt/data/sandboxes/vault
+      # - ${HERMES_PROJECTS_DIR:-/dev/null}:/opt/data/sandboxes/projects
+    labels:
+      caddy: ${HERMES_DOMAIN:?hermes domain required}
+      caddy.@tailnet.remote_ip: 100.64.0.0/10
+      caddy.handle_0: "@tailnet"
+      caddy.handle_0.reverse_proxy: "{{upstreams 9119}}"
+      caddy.handle_1.respond: '"Hermes is private — connect to the Tailscale VPN to access it." 403'
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - caddy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
+
+volumes:
+  hermes_data:

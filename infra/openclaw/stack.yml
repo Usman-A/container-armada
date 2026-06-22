@@ -1,0 +1,56 @@
+name: openclaw
+
+# OpenClaw — self-hosted autonomous AI agent (gateway daemon + web dashboard on 18789).
+# Exposure: TAILSCALE-GATED at the Caddy edge (same pattern as hive.usmanasad.ca) — only tailnet
+# clients reach the dashboard; everyone else gets a 403. OpenClaw's dashboard is explicitly
+# "not hardened for public exposure," so the tailnet gate (+ its own gateway token) is the access control.
+#
+# SECURITY: no host docker.sock is mounted and the agent runs unprivileged. Give it dev access
+# later by mounting a SCOPED workspace/repos dir (see the commented volume), never the host root
+# or the docker socket. LLM + gateway secrets come from the environment (1Password via Komodo).
+#
+# LLM: DeepSeek (OpenAI-compatible). DEEPSEEK_API_KEY is passed through; configure the provider as an
+# OpenAI-compatible endpoint (base url https://api.deepseek.com) during the one-time onboarding
+# (`docker compose run --rm openclaw dashboard --no-open`).
+
+services:
+  openclaw:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+    container_name: openclaw
+    restart: unless-stopped
+    environment:
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:?gateway token required}
+      OPENCLAW_SKIP_ONBOARDING: ${OPENCLAW_SKIP_ONBOARDING:-1}
+      OPENCLAW_SANDBOX: ${OPENCLAW_SANDBOX:-1}
+      # LLM: DeepSeek (OpenAI-compatible). Supplied via Komodo/op.
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    volumes:
+      - openclaw_config:/home/node/.openclaw
+      - openclaw_workspace:/home/node/.openclaw/workspace
+      # Scoped dev/vault access (enable when ready — see DESIGN NOTE A in MIGRATION.md):
+      # - ${OBSIDIAN_VAULT_PATH:-/dev/null}:/home/node/.openclaw/workspace/vault
+      # - ${OPENCLAW_PROJECTS_DIR:-/dev/null}:/home/node/.openclaw/workspace/projects
+    labels:
+      caddy: ${OPENCLAW_DOMAIN:?openclaw domain required}
+      caddy.@tailnet.remote_ip: 100.64.0.0/10
+      caddy.handle_0: "@tailnet"
+      caddy.handle_0.reverse_proxy: "{{upstreams 18789}}"
+      caddy.handle_1.respond: '"OpenClaw is private — connect to the Tailscale VPN to access it." 403'
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - caddy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
+
+volumes:
+  openclaw_config:
+  openclaw_workspace:
