@@ -1,0 +1,67 @@
+name: termix
+
+# Termix — browser-based SSH/RDP/VNC workspace and connection manager
+# (https://github.com/LukeGus/Termix). Termix has its own native multi-user auth
+# (first registered user becomes admin), so the app itself is the identity layer.
+#
+# Exposure: TAILSCALE-GATED at the Caddy edge — same pattern as hive/hermes/openclaw.
+# Only tailnet clients (100.64.0.0/10) reach Termix; everyone else gets a 403. Pair this
+# with a DNS-only (grey-cloud) A record for the host pointing at the tailnet IP so public
+# resolvers can't even find it. The gate is the real enforcement (it blocks a Host-header
+# request sent straight to the public IP); the DNS record is the first line of defense.
+#
+# The `guacd` sidecar powers Termix's optional remote-desktop (RDP/VNC/Telnet) features.
+# Drop it (and GUACD_HOST) if you only need SSH.
+
+services:
+  termix:
+    image: ghcr.io/lukegus/termix:${TERMIX_TAG:-latest}
+    container_name: termix
+    restart: unless-stopped
+    depends_on:
+      - guacd
+    volumes:
+      - termix_data:/app/data
+    environment:
+      PORT: "${TERMIX_PORT:-8080}"
+      GUACD_HOST: "${GUACD_HOST:-guacd}"
+    labels:
+      caddy: ${TERMIX_DOMAIN:?termix domain required}
+      caddy.@tailnet.remote_ip: 100.64.0.0/10
+      caddy.handle_0: "@tailnet"
+      caddy.handle_0.reverse_proxy: "{{upstreams 8080}}"
+      caddy.handle_1.respond: '"Termix is private — connect to the Tailscale VPN to access it." 403'
+    networks:
+      - caddy
+      - termix_internal
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  guacd:
+    image: guacamole/guacd:${GUACD_TAG:-1.6.0}
+    container_name: guacd
+    restart: unless-stopped
+    networks:
+      - termix_internal
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+networks:
+  caddy:
+    name: ${CADDY_INGRESS_NETWORK:-caddy}
+    external: true
+  termix_internal:
+
+volumes:
+  termix_data:
+    driver: local
